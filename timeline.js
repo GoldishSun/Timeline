@@ -4,9 +4,12 @@ const Timeline = class Timeline {
     this.start_x = 0;
     this.smallBarSize = { x: 2, y: 10 };
     this.largeBarSize = { x: 2, y: 20 };
+    this.soundDetectBarSize = { x: 2, y: 20 };
+    this.motionDetectBarSize = { x: 2, y: 20 };
+    this.bookMarkBarSize = { x: 5, y: 10 };
     this.canMove = false;
     this.clickedAxis = null;
-    this.playPoint = null; // 재생시점의 시간 TODO: new Date() 또는 yyyy-MM-dd HH:mm:ss 로 받을 수 있게 작업
+    this.playPoint = new Date(); // 재생시점의 시간 TODO: new Date() 또는 yyyy-MM-dd HH:mm:ss 로 받을 수 있게 작업
     this.playStartPoint = null;
     this.playEndPoint = null;
     this.width = null; 
@@ -14,9 +17,11 @@ const Timeline = class Timeline {
     this.mode = 'pc';
     this.scale = 'tenMin'; // 1분, 10분, 1시간, 3시간, 6시간 등
     this.barInterval = null; // 바와 바 사이의 픽셀 간격
-    this.unit = null; // 1pixel 당 시간임 : init 또는 scale변경시 초기화
+    this.unit = null; // 1pixel 당 시간초 : init 또는 scale변경시 초기화
     this.scaleTable = {
       // width와 spacing을 이용하여 pixel당 단위 시간을 구함
+      // spacing : 큰바의 최대 갯수
+      // sec : 큰바와 큰바 사이의 간격에 대한 시간초
       pc: {
         oneMin: {
           spacing: 10,
@@ -62,11 +67,22 @@ const Timeline = class Timeline {
         },
       },
     };
-    this.recordList = [];
     this.bookMarkList = [];
     this.soundList = [];
     this.motionList = [];
+    this.recordList = [];
     this.init();
+    this.setTestData(); // 테스트를 위한 임시 랜덤 데이터 생성, 개발 완료 후 제거 예정
+  }
+  setTestData() { // 테스트를 위한 임시 랜덤 데이터 생성, 개발 완료 후 제거 예정
+    let Point = this.playStartPoint.getTime();
+    const loader = (this.playPoint.getTime() - this.playStartPoint.getTime()) / 10;
+    for(let g = 0; g < 15; ++ g) {
+      Point += loader;
+      this.soundList.push(new Date(Point));
+      this.motionList.push(new Date(Point + (Math.random(5, 10) * 200000)));
+      this.bookMarkList.push(new Date(Point - (Math.random(3, 10) * 300000)));
+    }
   }
   init() {
     this.width = this.canvas.parentNode.clientWidth;
@@ -89,7 +105,6 @@ const Timeline = class Timeline {
         this.canMove = false;
         const pp = this.getDragPlayPoint(this.clickedAxis, e.clientX);
         this.drawCurrent(pp);
-        this.clickedAxis = e.clientX;
       }
     });
     this.canvas.addEventListener('mousemove', (e) => {
@@ -115,19 +130,18 @@ const Timeline = class Timeline {
     // start > end : 현재 플레이보다 미래
     // start < end : 현재 플레이보다 과거
     if (start === end) return this.playPoint;
-    const diff = (start - end) * this.unit * this.getSpacing();
+    const diff = (start - end) * this.unit * (this.getScaleSec() / this.getSpacing());
     return new Date(this.playPoint.getTime() + diff);
   }
   setBarInterval() {
     const spacing = this.getSpacing();
-    console.log(this.unit, spacing);
-    // const cell = spacing * 10;
-    // const largeBarTotalWidth = (spacing + 1) * this.largeBarSize.x;
-    // const smallBarTotalWidth = spacing * 9 * this.smallBarSize.x;
-    // const remainder = this.width - (largeBarTotalWidth + smallBarTotalWidth);
-    // this.barInterval = Number((remainder / cell).toFixed(4));
+    const cell = spacing * 10;
+    const largeBarTotalWidth = (spacing - 1) * this.largeBarSize.x;
+    const smallBarTotalWidth = spacing * (spacing - 1) * this.smallBarSize.x;
+    const remainder = this.width - (largeBarTotalWidth + smallBarTotalWidth);
+    this.barInterval = Number((remainder / cell).toFixed(4)) + this.smallBarSize.x;
   }
-  setUnit() {
+  setUnit() { // 1pixel 당
     const totalSec = this.getScaleSec() * this.getSpacing();
     this.unit = Number((totalSec / this.width).toFixed(4));
   }
@@ -149,22 +163,12 @@ const Timeline = class Timeline {
   getSpacing() {
     return this.scaleTable[this.mode][this.scale]['spacing'];
   }
-  getLargeBarTextList() {
-    return [
-      '17:10',
-      '17:20',
-      '17:30',
-      '17:40',
-      '17:50',
-      '18:00',
-      '18:10',
-      '18:20',
-      '18:30',
-      '18:40',
-      '18:50',
-      '19:00',
-      '19:10',
-    ];
+  getXAxisOfPoint(date) {
+    let isPlus = true;
+    let diff = this.playPoint.getTime() - date.getTime();
+    if (diff < 0) isPlus = false;
+    diff = Math.abs(diff) / (this.unit * 1000);
+    return isPlus ? (this.width / 2) - diff : (this.width / 2) + diff;
   }
   drawPlayPointLine() {
     const ctx = this.canvas.getContext('2d');
@@ -209,16 +213,55 @@ const Timeline = class Timeline {
     ctx.fillStyle = 'rgba(156, 157, 160, 1)';
     ctx.fillRect(x, y, this.largeBarSize.x, this.largeBarSize.y);
   }
+  drawSoundDetectLine(x) {
+    const ctx = this.canvas.getContext('2d');
+    ctx.fillStyle = 'rgba(116, 65, 198, 1)';
+    ctx.fillRect(x, 0, this.soundDetectBarSize.x, this.soundDetectBarSize.y);
+  }
+  drawMotionDetectLine(x) {
+    const ctx = this.canvas.getContext('2d');
+    ctx.fillStyle = 'rgba(111, 198, 65, 1)';
+    ctx.fillRect(x, 0, this.motionDetectBarSize.x, this.motionDetectBarSize.y);
+  }
+  drawBookMarkLine(x) {
+    const ctx = this.canvas.getContext('2d');
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x - this.bookMarkBarSize.x, 0);
+    ctx.lineTo(x - this.bookMarkBarSize.x, this.bookMarkBarSize.y);
+    ctx.lineTo(x, this.bookMarkBarSize.x + this.bookMarkBarSize.y);
+    ctx.lineTo(x + this.bookMarkBarSize.x, this.bookMarkBarSize.y);
+    ctx.lineTo(x + this.bookMarkBarSize.x, 0);
+    ctx.closePath();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(236, 236, 236, 1)';
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(115, 115, 115, 1)';
+    ctx.fill();
+  }
   drawBookMark() {
-    this.bookMarkList.filter((ele) => {}).forEach((ele) => {});
+    this.bookMarkList
+    .filter(ele => this.playStartPoint.getTime() <= ele.getTime() && this.playEndPoint.getTime() >= ele.getTime())
+    .forEach(ele => this.drawBookMarkLine(this.getXAxisOfPoint(ele)));
   }
   drawMotionMark() {
-    this.motionList.filter((ele) => {}).forEach((ele) => {});
+    this.motionList
+    .filter(ele => this.playStartPoint.getTime() <= ele.getTime() && this.playEndPoint.getTime() >= ele.getTime())
+    .forEach(ele => this.drawMotionDetectLine(this.getXAxisOfPoint(ele)));
   }
   drawSoundMark() {
-    this.soundList.filter((ele) => {}).forEach((ele) => {});
+    this.soundList
+    .filter(ele => this.playStartPoint.getTime() <= ele.getTime() && this.playEndPoint.getTime() >= ele.getTime())
+    .forEach(ele => this.drawSoundDetectLine(this.getXAxisOfPoint(ele)));
   }
-  drawRecordBox(sx, sy, ex, ey) {}
+  drawRecordBox() {
+    this.drawBlueBox(0, 30, this.width / 2, 20);
+  }
+  drawBlueBox(sx, sy, ex, ey) {
+    const ctx = this.canvas.getContext('2d');
+    ctx.fillStyle = 'rgba(20, 151, 212, 0.6)';
+    ctx.fillRect(sx, sy, ex, ey);
+  }
   drawRefresh() {
     const ctx = this.canvas.getContext('2d');
     ctx.clearRect(0, 0, this.width, this.height);
@@ -268,8 +311,6 @@ const Timeline = class Timeline {
     this.setTimeLineStartPoint();
     this.setTimeLineEndPoint();
 
-    console.log(this.playStartPoint, this.playEndPoint);
-
     if (this.scale === 'oneMin') this.drawOneMin();
     else if (this.scale === 'tenMin') this.drawTenMin();
     else if (this.scale === 'oneHour') this.drawOneHour();
@@ -281,6 +322,7 @@ const Timeline = class Timeline {
     this.drawMotionMark();
     this.drawSoundMark();
     this.drawPlayPointLine();
+    this.drawRecordBox();
   }
 };
 
