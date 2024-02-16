@@ -15,7 +15,7 @@ const Timeline = class Timeline {
     this.width = null; 
     this.height = 50; 
     this.mode = 'pc';
-    this.scale = 'tenMin'; // 1분, 10분, 1시간, 3시간, 6시간 등
+    this.scale = 'oneMin'; // 1분, 10분, 1시간, 3시간, 6시간 등
     this.barInterval = null; // 바와 바 사이의 픽셀 간격
     this.unit = null; // 1pixel 당 시간초 : init 또는 scale변경시 초기화
     this.scaleTable = {
@@ -77,7 +77,7 @@ const Timeline = class Timeline {
   setTestData() { // 테스트를 위한 임시 랜덤 데이터 생성, 개발 완료 후 제거 예정
     let Point = this.playStartPoint.getTime();
     const loader = (this.playPoint.getTime() - this.playStartPoint.getTime()) / 10;
-    for(let g = 0; g < 15; ++ g) {
+    for(let g = 0; g < 3; ++ g) {
       Point += loader;
       this.soundList.push(new Date(Point));
       this.motionList.push(new Date(Point + (Math.random(5, 10) * 200000)));
@@ -117,14 +117,17 @@ const Timeline = class Timeline {
     window.addEventListener('resize', (e) => {
       this.width = this.canvas.parentNode.clientWidth;
       this.canvas.width = this.width;
-      this.setUnit();
-      this.setBarInterval();
-      if (this.playPoint) {
-        this.setTimeLineStartPoint();
-        this.setTimeLineEndPoint();
-      }
+      this.reboot();
       this.drawCurrent(this.playPoint);
     });
+  }
+  reboot() {
+    this.setUnit();
+    this.setBarInterval();
+    if(this.playPoint) {
+      this.setTimeLineStartPoint();
+      this.setTimeLineEndPoint();
+    }
   }
   getDragPlayPoint(start, end) {
     // start > end : 현재 플레이보다 미래
@@ -266,10 +269,47 @@ const Timeline = class Timeline {
     const ctx = this.canvas.getContext('2d');
     ctx.clearRect(0, 0, this.width, this.height);
   }
-  drawOneMin() {}
-  drawOneHour() {}
   drawThreeHour() {}
   drawSixHour() {}
+  drawOneHour() {
+
+  }
+  drawOneMin() {
+    let sp = this.playStartPoint.getTime();
+    let loader = this.unit * 1000;
+    const largeTerm = 60;
+    let largeRemainder, largeShare;
+    let lastLarge = [-1, -1];
+    let isFirst = true;
+    for(let g = this.start_x; g < this.width; ++ g) {
+      const tmp = new Date(sp);
+      const hour = tmp.getHours();
+      const min = tmp.getMinutes();
+      const sec = tmp.getSeconds();
+      const mil = tmp.getMilliseconds();
+      largeShare = min / largeTerm;
+      largeRemainder = sec % largeTerm;
+      if (!largeRemainder && lastLarge[0] != min) {
+        this.drawLargeLine(
+          g,
+          this.canvas.height - 20,
+          `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`
+        );
+        if(!isFirst) {
+          for (let w = lastLarge[1]; w < g; w += this.barInterval)
+            this.drawSmallLine(w, this.canvas.height - 10);
+        } else {
+          for (let w = g; w > 0; w -= this.barInterval)
+            this.drawSmallLine(w, this.canvas.height - 10);
+          isFirst = false;
+        }
+        lastLarge = [min, g];
+      }
+      sp += loader;
+    }
+    for (let w = lastLarge[1]; w < this.width; w += this.barInterval)
+      this.drawSmallLine(w, this.canvas.height - 10);
+  }
   drawTenMin() {
     let sp = this.playStartPoint.getTime();
     let loader = this.unit * 1000;
@@ -304,6 +344,9 @@ const Timeline = class Timeline {
     for (let w = lastLarge[1]; w < this.width; w += this.barInterval)
       this.drawSmallLine(w, this.canvas.height - 10);
   }
+  drawCurrent() {
+    this.drawCurrent(this.playPoint);
+  }
   drawCurrent(playPoint) {
     this.drawRefresh();
 
@@ -331,4 +374,19 @@ const timeline = new Timeline(canvas);
 const playPoint = new Date();
 var logger = document.getElementById('logger');
 logger.innerText = playPoint + ', ' + timeline.mode + ', ' + timeline.scale;
-timeline.drawCurrent(playPoint);
+timeline.drawCurrent(new Date());
+setInterval(() => {
+  timeline.drawCurrent(new Date());
+}, 300);
+
+function toggle() {
+  if(timeline.scale === 'oneMin') {
+    timeline.scale = 'tenMin';
+    timeline.reboot();
+    timeline.drawCurrent(timeline.playPoint);
+  } else {
+    timeline.scale = 'oneMin';
+    timeline.reboot();
+    timeline.drawCurrent(timeline.playPoint);
+  }
+}
