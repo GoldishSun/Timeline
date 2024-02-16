@@ -33,15 +33,15 @@ const Timeline = class Timeline {
           sec: 600,
         },
         oneHour: {
-          spacing: 6,
+          spacing: 10,
           sec: 3600,
         },
         threeHour: {
-          spacing: 5,
+          spacing: 10,
           sec: 10800,
         },
         sixHour: {
-          spacing: 4,
+          spacing: 10,
           sec: 21600,
         },
       },
@@ -78,7 +78,7 @@ const Timeline = class Timeline {
   setTestData() { // 테스트를 위한 임시 랜덤 데이터 생성, 개발 완료 후 제거 예정
     let Point = this.playStartPoint.getTime();
     const loader = (this.playPoint.getTime() - this.playStartPoint.getTime()) / 10;
-    for(let g = 0; g < 3; ++ g) {
+    for(let g = 0; g < 9; ++ g) {
       Point += loader;
       this.soundList.push(new Date(Point));
       this.motionList.push(new Date(Point + (Math.random(5, 10) * 200000)));
@@ -144,7 +144,7 @@ const Timeline = class Timeline {
     const largeBarTotalWidth = (spacing - 1) * this.largeBarSize.x;
     const smallBarTotalWidth = spacing * (spacing - 1) * this.smallBarSize.x;
     const remainder = this.width - (largeBarTotalWidth + smallBarTotalWidth);
-    this.barInterval = Number((remainder / cell).toFixed(4)) + this.smallBarSize.x;
+    this.barInterval = Number((remainder / cell).toFixed(10)) + this.smallBarSize.x;
   }
   setUnit() { // 1pixel 당
     const totalSec = this.getScaleSec() * this.getSpacing();
@@ -271,17 +271,17 @@ const Timeline = class Timeline {
     const ctx = this.canvas.getContext('2d');
     ctx.clearRect(0, 0, this.width, this.height);
   }
-  drawTimeScale(term, largeBarInterval) {
+  drawTimeScale() {
     let sp = this.playStartPoint.getTime();
     const loader = this.unit * 1000;
     let largeRemainder, largeShare;
     let lastLarge = [-1, -1];
     let isFirst = true;
-    
+
     for (let g = this.start_x; g < this.width; ++g) {
       const tmp = new Date(sp);
       const hour = tmp.getHours();
-      const min = tmp.getMinutes();
+      let min = tmp.getMinutes();
 
       if (this.scale === 'oneHour') {
         largeShare = hour;
@@ -289,9 +289,11 @@ const Timeline = class Timeline {
       } else if (this.scale === 'threeHour') {
         largeShare = hour / 3;
         largeRemainder = hour % 3;
+        min = 0; // this.width 와 this.unit 에 의해 1분 정도의 오차가 발생할 수 있음
       } else if (this.scale === 'sixHour') {
         largeShare = hour / 6;
         largeRemainder = hour % 6;
+        min = 0; // this.width 와 this.unit 에 의해 1분 정도의 오차가 발생할 수 있음
       } else if (this.scale === 'oneMin') {
         largeShare = min / 1;
         largeRemainder = min % 1;
@@ -333,13 +335,7 @@ const Timeline = class Timeline {
     this.setTimeLineStartPoint();
     this.setTimeLineEndPoint();
 
-    if (this.scale === 'oneMin') this.drawTimeScale(1, 60);
-    else if (this.scale === 'tenMin') this.drawTimeScale(10, 600);
-    else if (this.scale === 'oneHour') this.drawTimeScale(24, 3600);
-    else if (this.scale === 'threeHour') this.drawTimeScale(180, 10800);
-    else if (this.scale === 'sixHour') this.drawTimeScale(360, 21600);
-    else this.drawTimeScale(1, 60);
-
+    this.drawTimeScale();
     this.drawBookMark();
     this.drawMotionMark();
     this.drawSoundMark();
