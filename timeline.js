@@ -1,5 +1,5 @@
 const Timeline = class Timeline {
-  constructor(canvas) {
+  constructor(canvas, selectedScale) {
     this.canvas = canvas;
     this.start_x = 0;
     this.smallBarSize = { x: 2, y: 10 };
@@ -15,7 +15,8 @@ const Timeline = class Timeline {
     this.width = null; 
     this.height = 50; 
     this.mode = 'pc';
-    this.scale = 'oneMin'; // 1분, 10분, 1시간, 3시간, 6시간 등
+    this.scale = 'oneHour'; // 1분, 10분, 1시간, 3시간, 6시간 등
+    if(selectedScale) this.scale = selectedScale;
     this.barInterval = null; // 바와 바 사이의 픽셀 간격
     this.unit = null; // 1pixel 당 시간초 : init 또는 scale변경시 초기화
     this.scaleTable = {
@@ -138,7 +139,8 @@ const Timeline = class Timeline {
   }
   setBarInterval() {
     const spacing = this.getSpacing();
-    const cell = spacing * 10;
+    let cell = spacing * 10;
+    // if (this.scale === 'oneHour') cell = spacing * 5;
     const largeBarTotalWidth = (spacing - 1) * this.largeBarSize.x;
     const smallBarTotalWidth = spacing * (spacing - 1) * this.smallBarSize.x;
     const remainder = this.width - (largeBarTotalWidth + smallBarTotalWidth);
@@ -269,66 +271,42 @@ const Timeline = class Timeline {
     const ctx = this.canvas.getContext('2d');
     ctx.clearRect(0, 0, this.width, this.height);
   }
-  drawThreeHour() {}
-  drawSixHour() {}
-  drawOneHour() {
-
-  }
-  drawOneMin() {
+  drawTimeScale(term, largeBarInterval) {
     let sp = this.playStartPoint.getTime();
-    let loader = this.unit * 1000;
-    const largeTerm = 60;
+    const loader = this.unit * 1000;
     let largeRemainder, largeShare;
     let lastLarge = [-1, -1];
     let isFirst = true;
-    for(let g = this.start_x; g < this.width; ++ g) {
-      const tmp = new Date(sp);
-      const hour = tmp.getHours();
-      const min = tmp.getMinutes();
-      const sec = tmp.getSeconds();
-      const mil = tmp.getMilliseconds();
-      largeShare = min / largeTerm;
-      largeRemainder = sec % largeTerm;
-      if (!largeRemainder && lastLarge[0] != min) {
-        this.drawLargeLine(
-          g,
-          this.canvas.height - 20,
-          `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`
-        );
-        if(!isFirst) {
-          for (let w = lastLarge[1]; w < g; w += this.barInterval)
-            this.drawSmallLine(w, this.canvas.height - 10);
-        } else {
-          for (let w = g; w > 0; w -= this.barInterval)
-            this.drawSmallLine(w, this.canvas.height - 10);
-          isFirst = false;
-        }
-        lastLarge = [min, g];
-      }
-      sp += loader;
-    }
-    for (let w = lastLarge[1]; w < this.width; w += this.barInterval)
-      this.drawSmallLine(w, this.canvas.height - 10);
-  }
-  drawTenMin() {
-    let sp = this.playStartPoint.getTime();
-    let loader = this.unit * 1000;
-    const largeTerm = 10;
-    let largeRemainder, largeShare;
-    let lastLarge = [-1, -1];
-    let isFirst = true;
+    
     for (let g = this.start_x; g < this.width; ++g) {
       const tmp = new Date(sp);
       const hour = tmp.getHours();
       const min = tmp.getMinutes();
-      largeShare = min / largeTerm;
-      largeRemainder = min % largeTerm;
+
+      if (this.scale === 'oneHour') {
+        largeShare = hour;
+        largeRemainder = min % 60;
+      } else if (this.scale === 'threeHour') {
+        largeShare = hour / 3;
+        largeRemainder = hour % 3;
+      } else if (this.scale === 'sixHour') {
+        largeShare = hour / 6;
+        largeRemainder = hour % 6;
+      } else if (this.scale === 'oneMin') {
+        largeShare = min / 1;
+        largeRemainder = min % 1;
+      } else if (this.scale === 'tenMin') {
+        largeShare = min / 10;
+        largeRemainder = min % 10;
+      }
+      
       if (!largeRemainder && lastLarge[0] != largeShare) {
         this.drawLargeLine(
           g,
           this.canvas.height - 20,
           `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`
         );
+        
         if (!isFirst) {
           for (let w = lastLarge[1]; w < g; w += this.barInterval)
             this.drawSmallLine(w, this.canvas.height - 10);
@@ -341,6 +319,7 @@ const Timeline = class Timeline {
       }
       sp += loader;
     }
+    
     for (let w = lastLarge[1]; w < this.width; w += this.barInterval)
       this.drawSmallLine(w, this.canvas.height - 10);
   }
@@ -354,12 +333,12 @@ const Timeline = class Timeline {
     this.setTimeLineStartPoint();
     this.setTimeLineEndPoint();
 
-    if (this.scale === 'oneMin') this.drawOneMin();
-    else if (this.scale === 'tenMin') this.drawTenMin();
-    else if (this.scale === 'oneHour') this.drawOneHour();
-    else if (this.scale === 'threeHour') this.drawThreeHour();
-    else if (this.scale === 'sixHour') this.drawSixHour();
-    else this.drawTenMin();
+    if (this.scale === 'oneMin') this.drawTimeScale(1, 60);
+    else if (this.scale === 'tenMin') this.drawTimeScale(10, 600);
+    else if (this.scale === 'oneHour') this.drawTimeScale(24, 3600);
+    else if (this.scale === 'threeHour') this.drawTimeScale(180, 10800);
+    else if (this.scale === 'sixHour') this.drawTimeScale(360, 21600);
+    else this.drawTimeScale(1, 60);
 
     this.drawBookMark();
     this.drawMotionMark();
@@ -369,8 +348,9 @@ const Timeline = class Timeline {
   }
 };
 
+var scaleSelectBox = document.getElementById('scaleSelectBox');
 var canvas = document.getElementById('timeline');
-const timeline = new Timeline(canvas);
+const timeline = new Timeline(canvas, scaleSelectBox.selectedOptions[0].value);
 const playPoint = new Date();
 var logger = document.getElementById('logger');
 logger.innerText = playPoint + ', ' + timeline.mode + ', ' + timeline.scale;
@@ -379,14 +359,8 @@ setInterval(() => {
   timeline.drawCurrent(new Date());
 }, 300);
 
-function toggle() {
-  if(timeline.scale === 'oneMin') {
-    timeline.scale = 'tenMin';
-    timeline.reboot();
-    timeline.drawCurrent(timeline.playPoint);
-  } else {
-    timeline.scale = 'oneMin';
-    timeline.reboot();
-    timeline.drawCurrent(timeline.playPoint);
-  }
+function scaleSelected(select) {
+  timeline.scale = select.selectedOptions[0].value;
+  timeline.reboot();
+  timeline.drawCurrent(timeline.playPoint);
 }
