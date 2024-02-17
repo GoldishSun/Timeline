@@ -111,6 +111,7 @@ const Timeline = class Timeline {
     this.canvas.addEventListener('mousemove', (e) => {
       if (this.canMove) {
         const pp = this.getDragPlayPoint(this.clickedAxis, e.clientX);
+        this.clickedAxis = e.clientX;
         this.drawCurrent(pp);
       }
     });
@@ -134,7 +135,7 @@ const Timeline = class Timeline {
     // start > end : 현재 플레이보다 미래
     // start < end : 현재 플레이보다 과거
     if (start === end) return this.playPoint;
-    const diff = (start - end) * this.unit * (this.getScaleSec() / this.getSpacing());
+    const diff = (start - end) * 100 * (this.getScaleSec() / this.getSpacing());
     return new Date(this.playPoint.getTime() + diff);
   }
   setBarInterval() {
@@ -348,15 +349,20 @@ var scaleSelectBox = document.getElementById('scaleSelectBox');
 var canvas = document.getElementById('timeline');
 const timeline = new Timeline(canvas, scaleSelectBox.selectedOptions[0].value);
 const playPoint = new Date();
-var logger = document.getElementById('logger');
-logger.innerText = playPoint + ', ' + timeline.mode + ', ' + timeline.scale;
+logger();
 timeline.drawCurrent(new Date());
 setInterval(() => {
   timeline.drawCurrent(new Date());
-}, 300);
+  logger.innerText = new Date();
+}, 1000);
+function logger() {
+  var logger = document.getElementById('logger');
+  logger.innerText = timeline.playPoint + ', ' + timeline.mode + ', ' + timeline.scale + ', ' + timeline.unit;
+}
 
 function scaleSelected(select) {
   timeline.scale = select.selectedOptions[0].value;
   timeline.reboot();
   timeline.drawCurrent(timeline.playPoint);
+  logger();
 }
