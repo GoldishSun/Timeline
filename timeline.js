@@ -283,6 +283,7 @@ const Timeline = class Timeline {
       const tmp = new Date(sp);
       const hour = tmp.getHours();
       let min = tmp.getMinutes();
+      let sec = tmp.getSeconds();
 
       if (this.scale === 'oneHour') {
         largeShare = hour;
@@ -295,15 +296,15 @@ const Timeline = class Timeline {
         largeShare = hour / 6;
         largeRemainder = hour % 6;
         min = 0; // this.width 와 this.unit 에 의해 1분 정도의 오차가 발생할 수 있음
-      } else if (this.scale === 'oneMin') {
-        largeShare = min / 1;
-        largeRemainder = min % 1;
       } else if (this.scale === 'tenMin') {
         largeShare = min / 10;
         largeRemainder = min % 10;
-      }
+      } else if (this.scale === 'oneMin') {
+        largeShare = min / 1;
+        largeRemainder = sec % 60;
+      } 
       
-      if (!largeRemainder && lastLarge[0] != largeShare) {
+      if (!largeRemainder && lastLarge[0] != largeShare && lastLarge[1] !== g) {
         this.drawLargeLine(
           g,
           this.canvas.height - 20,
@@ -351,10 +352,10 @@ const timeline = new Timeline(canvas, scaleSelectBox.selectedOptions[0].value);
 const playPoint = new Date();
 logger();
 timeline.drawCurrent(new Date());
-setInterval(() => {
-  timeline.drawCurrent(new Date());
-  logger.innerText = new Date();
-}, 1000);
+// setInterval(() => {
+//   timeline.drawCurrent(new Date());
+//   logger.innerText = new Date();
+// }, 1000);
 function logger() {
   var logger = document.getElementById('logger');
   logger.innerText = timeline.playPoint + ', ' + timeline.mode + ', ' + timeline.scale + ', ' + timeline.unit;
